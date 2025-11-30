@@ -52,7 +52,7 @@ tcp-chat-project/
 └── README.md              # This file
 ```
 
-## 🚀 Installation & Setup
+## Installation & Setup
 
 ### Prerequisites
 - Python 3.7 or higher
@@ -134,7 +134,7 @@ Share this link with anyone - they can access your chat from anywhere!
 3. **Send Audio Messages:**
    - Click "🎤 Audio" button
    - Speak into your microphone
-   - Click "🔴 Stop" when done
+   - Click "Stop" when done
    - Audio automatically sends
 
 4. **Send Video Messages:**
