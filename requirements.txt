@@ -1,0 +1,8 @@
+# Web Chat Application Dependencies
+flask==2.3.3
+flask-socketio==5.3.6
+python-socketio==5.8.0
+python-engineio==4.7.1
+
+# For production deployment (optional)
+gunicorn==21.2.0

@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCP Chat - Web Version</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .chat-container {
+            width: 90%;
+            max-width: 800px;
+            height: 90vh;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            background: #4f46e5;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 60px;
+        }
+        
+        .chat-header h1 {
+            font-size: 20px;
+            margin: 0;
+        }
+        
+        .chat-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .status {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        .leave-btn {
+            padding: 6px 12px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        
+        .leave-btn:hover {
+            background: #dc2626;
+        }
+        
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            min-height: 0;
+        }
+        
+        .users-sidebar {
+            width: 180px;
+            background: #f8fafc;
+            border-right: 2px solid #e2e8f0;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        
+        .users-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #4f46e5;
+            font-size: 14px;
+        }
+        
+        .user-list {
+            list-style: none;
+        }
+        
+        .user-item {
+            padding: 6px 10px;
+            margin: 3px 0;
+            background: #e2e8f0;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        
+        .messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background: #f9fafb;
+            min-height: 0;
+        }
+        
+        .message {
+            margin: 8px 0;
+            padding: 10px 12px;
+            border-radius: 10px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        
+        .message.user-message {
+            background: #4f46e5;
+            color: white;
+            margin-left: auto;
+        }
+        
+        .message.other-message {
+            background: white;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .message.system-message {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            text-align: center;
+            margin: 5px auto;
+            font-style: italic;
+            max-width: 90%;
+        }
+        
+        .message-header {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+        
+        .message-content {
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        
+        .audio-controls {
+            background: #f1f5f9;
+            border-top: 2px solid #e2e8f0;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            min-height: 50px;
+        }
+        
+        .audio-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            font-size: 12px;
+        }
+        
+        .mic-btn {
+            background: #10b981;
+            color: white;
+        }
+        
+        .mic-btn.recording {
+            background: #ef4444;
+            animation: pulse 1s infinite;
+        }
+        
+        .mic-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .mic-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        .audio-status {
+            font-size: 11px;
+            color: #64748b;
+            text-align: center;
+            flex: 1;
+        }
+        
+        .input-area {
+            padding: 15px;
+            background: white;
+            border-top: 2px solid #e2e8f0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            min-height: 60px;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 20px;
+            font-size: 13px;
+            outline: none;
+            min-width: 0;
+        }
+        
+        .message-input:focus {
+            border-color: #4f46e5;
+        }
+        
+        .send-btn {
+            padding: 10px 20px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+            font-size: 13px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        
+        .send-btn:hover {
+            background: #4338ca;
+        }
+        
+        .send-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .nickname-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            min-width: 300px;
+        }
+        
+        .modal-content h2 {
+            margin-bottom: 20px;
+            color: #4f46e5;
+        }
+        
+        .modal-content input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+        
+        .modal-content button {
+            padding: 12px 30px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        /* Audio message styling */
+        .audio-message {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .audio-message audio {
+            width: 100%;
+            max-width: 250px;
+            height: 30px;
+        }
+
+        .video-controls {
+            background: #f1f5f9;
+            border-top: 2px solid #e2e8f0;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            min-height: 50px;
+        }
+        
+        .video-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            font-size: 12px;
+            background: #8b5cf6;
+            color: white;
+        }
+        
+        .video-btn.recording {
+            background: #ef4444;
+            animation: pulse 1s infinite;
+        }
+        
+        .video-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .video-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .video-status {
+            font-size: 11px;
+            color: #64748b;
+            text-align: center;
+            flex: 1;
+        }
+        
+        .video-preview {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 150px;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            z-index: 100;
+            display: none;
+            border: 3px solid #8b5cf6;
+        }
+        
+        .video-preview video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .video-preview-controls {
+            position: absolute;
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 5px;
+        }
+        
+        .preview-btn {
+            padding: 4px 8px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+        }
+        
+        /* Video message styling */
+        .video-message {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .video-message video {
+            width: 100%;
+            max-width: 300px;
+            height: auto;
+            border-radius: 8px;
+        }
+        
+        /* Media controls container */
+        .media-controls {
+            background: #f1f5f9;
+            border-top: 2px solid #e2e8f0;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            min-height: 50px;
+        }
+        
+        .media-status {
+            font-size: 11px;
+            color: #64748b;
+            text-align: center;
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>TCP Chat Room</h1>
+            <div class="chat-controls">
+                <div class="status" id="status">Connecting...</div>
+                <button id="leaveBtn" class="leave-btn" style="display: none;" onclick="leaveChat()">Leave</button>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="users-sidebar">
+                <div class="users-title">Online Users</div>
+                <ul class="user-list" id="userList"></ul>
+            </div>
+            
+            <div class="chat-area">
+                <div class="messages" id="messages"></div>
+                
+                <!-- Media Controls (Audio + Video) -->
+                <div class="media-controls" id="mediaControls" style="display: none;">
+                    <button id="micBtn" class="audio-btn mic-btn" onclick="toggleMicrophone()">
+                        🎤 Audio
+                    </button>
+                    <button id="videoBtn" class="video-btn" onclick="toggleVideo()">
+                        📹 Video
+                    </button>
+                    <div class="media-status" id="mediaStatus">Media initializing...</div>
+                </div>
+                
+                <div class="input-area">
+                    <input type="text" id="messageInput" class="message-input" 
+                           placeholder="Type your message..." disabled>
+                    <button id="sendBtn" class="send-btn" disabled>Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Nickname Modal -->
+    <div id="nicknameModal" class="nickname-modal">
+        <div class="modal-content">
+            <h2>Join Chat</h2>
+            <input type="text" id="nicknameInput" placeholder="Enter your nickname" maxlength="20">
+            <br>
+            <button onclick="joinChat()">Join Chat</button>
+        </div>
+    </div>
+    
+    <!-- Video Preview Window -->
+    <div id="videoPreview" class="video-preview">
+        <video id="previewVideo" autoplay muted></video>
+        <div class="video-preview-controls">
+            <button class="preview-btn" onclick="stopVideoRecording()">Stop</button>
+            <button class="preview-btn" onclick="closeVideoPreview()">Cancel</button>
+        </div>
+    </div>
+    
+    <script>
+        const socket = io();
+        let currentUser = '';
+        
+        // Audio variables
+        let isRecording = false;
+        let mediaRecorder = null;
+        let audioStream = null;
+        let audioInitialized = false;
+        
+        // Video variables
+        let isVideoRecording = false;
+        let videoMediaRecorder = null;
+        let videoStream = null;
+        let videoInitialized = false;
+        
+        // DOM elements
+        const messagesDiv = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const nicknameModal = document.getElementById('nicknameModal');
+        const nicknameInput = document.getElementById('nicknameInput');
+        const statusDiv = document.getElementById('status');
+        const userList = document.getElementById('userList');
+        const leaveBtn = document.getElementById('leaveBtn');
+        const mediaControls = document.getElementById('mediaControls');
+        const micBtn = document.getElementById('micBtn');
+        const videoBtn = document.getElementById('videoBtn');
+        const mediaStatus = document.getElementById('mediaStatus');
+        const videoPreview = document.getElementById('videoPreview');
+        const previewVideo = document.getElementById('previewVideo');
+        
+        // Socket events
+        socket.on('connect', function() {
+            statusDiv.textContent = 'Connected - Enter nickname to join';
+        });
+        
+        socket.on('disconnect', function() {
+            statusDiv.textContent = 'Disconnected';
+            messageInput.disabled = true;
+            sendBtn.disabled = true;
+        });
+        
+        socket.on('message', function(data) {
+            displayMessage(data);
+        });
+        
+        socket.on('user_list', function(users) {
+            updateUserList(users);
+        });
+        
+        socket.on('audio_message', function(data) {
+            displayAudioMessage(data);
+        });
+        
+        socket.on('video_message', function(data) {
+            displayVideoMessage(data);
+        });
+        
+        // Functions
+        function joinChat() {
+            const nickname = nicknameInput.value.trim();
+            if (nickname) {
+                currentUser = nickname;
+                socket.emit('join', {nickname: nickname});
+                nicknameModal.style.display = 'none';
+                messageInput.disabled = false;
+                sendBtn.disabled = false;
+                leaveBtn.style.display = 'block';
+                mediaControls.style.display = 'flex';
+                statusDiv.textContent = `Connected as ${nickname}`;
+                messageInput.focus();
+                setTimeout(initializeMedia, 500);
+            }
+        }
+        
+        function leaveChat() {
+            if (confirm('Are you sure you want to leave the chat?')) {
+                stopAudio();
+                socket.disconnect();
+                location.reload();
+            }
+        }
+        
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message) {
+                socket.emit('send_message', {message: message});
+                messageInput.value = '';
+            }
+        }
+        
+        function displayMessage(data) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            if (data.type === 'join' || data.type === 'leave') {
+                messageDiv.className += ' system-message';
+                messageDiv.innerHTML = `<div class="message-content">${data.message}</div>`;
+            } else if (data.nickname === currentUser) {
+                messageDiv.className += ' user-message';
+                messageDiv.innerHTML = `
+                    <div class="message-header">${data.timestamp}</div>
+                    <div class="message-content">${data.message}</div>
+                `;
+            } else {
+                messageDiv.className += ' other-message';
+                messageDiv.innerHTML = `
+                    <div class="message-header">${data.nickname} - ${data.timestamp}</div>
+                    <div class="message-content">${data.message}</div>
+                `;
+            }
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function updateUserList(users) {
+            userList.innerHTML = '';
+            users.forEach(user => {
+                const li = document.createElement('li');
+                li.className = 'user-item';
+                li.textContent = user;
+                userList.appendChild(li);
+            });
+        }
+        
+        // Updated media initialization
+        async function initializeMedia() {
+            try {
+                console.log('Initializing media...');
+                mediaStatus.textContent = 'Requesting camera and microphone access...';
+                
+                // Initialize audio only stream for audio messages
+                audioStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        sampleRate: 44100
+                    } 
+                });
+                
+                // Initialize video+audio stream for video messages
+                videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        frameRate: { ideal: 30 }
+                    },
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        sampleRate: 44100
+                    }
+                });
+                
+                audioInitialized = true;
+                videoInitialized = true;
+                micBtn.disabled = false;
+                videoBtn.disabled = false;
+                mediaStatus.textContent = 'Media ready - Click Audio or Video to record';
+                console.log('Media initialized successfully');
+                
+            } catch (error) {
+                console.error('Media initialization failed:', error);
+                
+                // Try audio only
+                try {
+                    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    audioInitialized = true;
+                    micBtn.disabled = false;
+                    mediaStatus.textContent = 'Audio only - Camera access denied';
+                } catch (audioError) {
+                    mediaStatus.textContent = 'Media access denied';
+                    micBtn.disabled = true;
+                    videoBtn.disabled = true;
+                }
+            }
+        }
+        
+        // Rename old function for consistency
+        const initializeAudio = initializeMedia;
+        
+        // Microphone toggle
+        function toggleMicrophone() {
+            if (!audioInitialized) {
+                mediaStatus.textContent = 'Microphone not available';
+                return;
+            }
+            
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+        
+        function startRecording() {
+            try {
+                console.log('Starting recording...');
+                const audioChunks = [];
+                
+                mediaRecorder = new MediaRecorder(audioStream, {
+                    mimeType: 'audio/webm'
+                });
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    console.log('Recording stopped, processing audio...');
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    sendAudioMessage(audioBlob);
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                micBtn.classList.add('recording');
+                micBtn.innerHTML = '🔴 Stop';
+                mediaStatus.textContent = 'Recording... (max 10 sec)';
+                
+                // Auto-stop after 10 seconds
+                setTimeout(() => {
+                    if (isRecording) stopRecording();
+                }, 10000);
+                
+            } catch (error) {
+                console.error('Recording error:', error);
+                mediaStatus.textContent = 'Recording failed';
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                console.log('Stopping recording...');
+                mediaRecorder.stop();
+                isRecording = false;
+                micBtn.classList.remove('recording');
+                micBtn.innerHTML = '🎤 Audio';
+                mediaStatus.textContent = 'Processing audio...';
+            }
+        }
+        
+        function sendAudioMessage(audioBlob) {
+            console.log('Sending audio message...');
+            const reader = new FileReader();
+            reader.onload = function() {
+                const audioData = reader.result;
+                socket.emit('send_audio', {
+                    audio: audioData,
+                    nickname: currentUser
+                });
+                mediaStatus.textContent = 'Audio sent! 🎵';
+                setTimeout(() => {
+                    mediaStatus.textContent = 'Media ready - Click Audio or Video to record';
+                }, 2000);
+            };
+            reader.readAsDataURL(audioBlob);
+        }
+        
+        function displayAudioMessage(data) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            if (data.nickname === currentUser) {
+                messageDiv.className += ' user-message';
+            } else {
+                messageDiv.className += ' other-message';
+            }
+            
+            const audioElement = document.createElement('audio');
+            audioElement.controls = true;
+            audioElement.src = data.audio;
+            audioElement.preload = 'metadata';
+            
+            messageDiv.innerHTML = `
+                <div class="message-header">${data.nickname} - ${data.timestamp} 🎵</div>
+                <div class="message-content audio-message"></div>
+            `;
+            
+            messageDiv.querySelector('.message-content').appendChild(audioElement);
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        // Video functionality
+        function toggleVideo() {
+            if (!videoInitialized) {
+                mediaStatus.textContent = 'Camera not available';
+                return;
+            }
+            
+            if (!isVideoRecording) {
+                startVideoRecording();
+            } else {
+                stopVideoRecording();
+            }
+        }
+        
+        function startVideoRecording() {
+            try {
+                console.log('Starting video recording with audio...');
+                const videoChunks = [];
+                
+                // Show video preview
+                previewVideo.srcObject = videoStream;
+                videoPreview.style.display = 'block';
+                
+                // Record video with audio
+                videoMediaRecorder = new MediaRecorder(videoStream, {
+                    mimeType: 'video/webm;codecs=vp8,opus'
+                });
+                
+                videoMediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        videoChunks.push(event.data);
+                    }
+                };
+                
+                videoMediaRecorder.onstop = () => {
+                    console.log('Video recording stopped, processing...');
+                    const videoBlob = new Blob(videoChunks, { type: 'video/webm' });
+                    sendVideoMessage(videoBlob);
+                    closeVideoPreview();
+                };
+                
+                videoMediaRecorder.start();
+                isVideoRecording = true;
+                videoBtn.classList.add('recording');
+                videoBtn.innerHTML = '🔴 Stop Video';
+                mediaStatus.textContent = 'Recording video with audio... (max 15 sec)';
+                
+                // Auto-stop after 15 seconds
+                setTimeout(() => {
+                    if (isVideoRecording) stopVideoRecording();
+                }, 15000);
+                
+            } catch (error) {
+                console.error('Video recording error:', error);
+                mediaStatus.textContent = 'Video recording failed';
+                closeVideoPreview();
+            }
+        }
+        
+        function stopVideoRecording() {
+            if (videoMediaRecorder && isVideoRecording) {
+                console.log('Stopping video recording...');
+                videoMediaRecorder.stop();
+                isVideoRecording = false;
+                videoBtn.classList.remove('recording');
+                videoBtn.innerHTML = '📹 Video';
+                mediaStatus.textContent = 'Processing video...';
+            }
+        }
+        
+        function closeVideoPreview() {
+            videoPreview.style.display = 'none';
+            previewVideo.srcObject = null;
+            if (isVideoRecording) {
+                stopVideoRecording();
+            }
+        }
+        
+        function sendVideoMessage(videoBlob) {
+            console.log('Sending video message...');
+            const reader = new FileReader();
+            reader.onload = function() {
+                const videoData = reader.result;
+                socket.emit('send_video', {
+                    video: videoData,
+                    nickname: currentUser
+                });
+                mediaStatus.textContent = 'Video sent! 📹';
+                setTimeout(() => {
+                    mediaStatus.textContent = 'Media ready - Click Audio or Video to record';
+                }, 2000);
+            };
+            reader.readAsDataURL(videoBlob);
+        }
+        
+        function displayVideoMessage(data) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            if (data.nickname === currentUser) {
+                messageDiv.className += ' user-message';
+            } else {
+                messageDiv.className += ' other-message';
+            }
+            
+            const videoElement = document.createElement('video');
+            videoElement.controls = true;
+            videoElement.src = data.video;
+            videoElement.preload = 'metadata';
+            videoElement.style.maxWidth = '300px';
+            videoElement.style.borderRadius = '8px';
+            // Ensure audio is enabled
+            videoElement.muted = false;
+            videoElement.volume = 1.0;
+            
+            messageDiv.innerHTML = `
+                <div class="message-header">${data.nickname} - ${data.timestamp} 📹🔊</div>
+                <div class="message-content video-message"></div>
+            `;
+            
+            messageDiv.querySelector('.message-content').appendChild(videoElement);
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function stopAudio() {
+            if (audioStream) {
+                audioStream.getTracks().forEach(track => track.stop());
+            }
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+            }
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+            }
+            if (videoMediaRecorder && isVideoRecording) {
+                videoMediaRecorder.stop();
+            }
+        }
+        
+        // Event listeners
+        sendBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        nicknameInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                joinChat();
+            }
+        });
+        
+        // Focus nickname input on load
+        nicknameInput.focus();
+    </script>
+</body>
+</html>
