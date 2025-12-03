@@ -11,10 +11,43 @@ socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=10000000
 connected_users = {}
 chat_history = []
 
+statistics = {
+    'total_messages': 0,
+    'total_audio': 0,
+    'total_video': 0,
+    'total_users_joined': 0,
+    'peak_users': 0,
+    'server_start_time': datetime.datetime.now()
+}
+
 @app.route('/')
 def index():
     """Main chat page"""
     return render_template('chat.html')
+
+@app.route('/statistics')
+def stats_page():
+    """Statistics page"""
+    return render_template('statistics.html')
+
+@socketio.on('get_statistics')
+def send_statistics():
+    """Send real-time statistics to client"""
+    uptime = datetime.datetime.now() - statistics['server_start_time']
+    hours = int(uptime.total_seconds() // 3600)
+    minutes = int((uptime.total_seconds() % 3600) // 60)
+    
+    stats_data = {
+        'total_messages': statistics['total_messages'],
+        'total_audio': statistics['total_audio'],
+        'total_video': statistics['total_video'],
+        'total_users': statistics['total_users_joined'],
+        'active_users': len(connected_users),
+        'peak_users': statistics['peak_users'],
+        'uptime': f'{hours}h {minutes}m',
+        'avg_msg_length': round(sum(len(msg.get('message', '')) for msg in chat_history) / max(len(chat_history), 1), 1)
+    }
+    emit('statistics_update', stats_data)
 
 @socketio.on('connect')
 def handle_connect():
@@ -44,6 +77,10 @@ def handle_join(data):
     """Handle user joining chat"""
     nickname = data['nickname']
     connected_users[request.sid] = nickname
+
+    statistics['total_users_joined'] += 1
+    if len(connected_users) > statistics['peak_users']:
+        statistics['peak_users'] = len(connected_users)
     
     timestamp = datetime.datetime.now().strftime("%H:%M:%S")
     message = {
@@ -79,6 +116,8 @@ def handle_message(data):
     
     # Store in history
     chat_history.append(message)
+
+    statistics['total_messages'] += 1
     
     # Broadcast to all clients
     emit('message', message, broadcast=True)
@@ -96,6 +135,8 @@ def handle_audio_message(data):
         'timestamp': timestamp,
         'type': 'audio'
     }
+
+    statistics['total_audio'] += 1
     
     # Broadcast audio to all clients
     emit('audio_message', message, broadcast=True)
@@ -113,6 +154,8 @@ def handle_video_message(data):
         'timestamp': timestamp,
         'type': 'video'
     }
+
+    statistics['total_video'] += 1
     
     # Broadcast video to all clients
     emit('video_message', message, broadcast=True)

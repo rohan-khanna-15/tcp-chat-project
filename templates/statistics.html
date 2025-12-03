@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Statistics</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .stats-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .back-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            transition: 0.3s;
+            margin-top: 10px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            transition: 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            font-size: 1em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .info-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .info-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .info-item {
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info-item strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .live-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #00ff00;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            margin-right: 5px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <div class="stats-container">
+        <div class="header">
+            <h1>📊 Chat Statistics</h1>
+            <p><span class="live-indicator"></span>Live Data - Auto-updates every 3 seconds</p>
+            <a href="/" class="back-btn">← Back to Chat</a>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">💬</div>
+                <div class="stat-value" id="totalMessages">0</div>
+                <div class="stat-label">Total Messages</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">🎤</div>
+                <div class="stat-value" id="totalAudio">0</div>
+                <div class="stat-label">Audio Messages</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">🎥</div>
+                <div class="stat-value" id="totalVideo">0</div>
+                <div class="stat-label">Video Messages</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-value" id="totalUsers">0</div>
+                <div class="stat-label">Total Users Joined</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">🟢</div>
+                <div class="stat-value" id="activeUsers">0</div>
+                <div class="stat-label">Active Users Now</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">📈</div>
+                <div class="stat-value" id="peakUsers">0</div>
+                <div class="stat-label">Peak Users</div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2>📋 Additional Information</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <strong>⏱️ Server Uptime</strong>
+                    <span id="uptime">0h 0m</span>
+                </div>
+                <div class="info-item">
+                    <strong>📏 Avg Message Length</strong>
+                    <span id="avgLength">0</span> characters
+                </div>
+                <div class="info-item">
+                    <strong>🔢 Total Media</strong>
+                    <span id="totalMedia">0</span> files
+                </div>
+                <div class="info-item">
+                    <strong>⚡ Status</strong>
+                    <span style="color: green;">● Online</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+
+        // Request statistics when connected
+        socket.on('connect', function() {
+            console.log('Connected to statistics feed');
+            socket.emit('get_statistics');
+        });
+
+        // Update statistics display
+        socket.on('statistics_update', function(data) {
+            document.getElementById('totalMessages').textContent = data.total_messages;
+            document.getElementById('totalAudio').textContent = data.total_audio;
+            document.getElementById('totalVideo').textContent = data.total_video;
+            document.getElementById('totalUsers').textContent = data.total_users;
+            document.getElementById('activeUsers').textContent = data.active_users;
+            document.getElementById('peakUsers').textContent = data.peak_users;
+            document.getElementById('uptime').textContent = data.uptime;
+            document.getElementById('avgLength').textContent = data.avg_msg_length;
+            document.getElementById('totalMedia').textContent = data.total_audio + data.total_video;
+        });
+
+        // Auto-refresh statistics every 3 seconds
+        setInterval(function() {
+            socket.emit('get_statistics');
+        }, 3000);
+    </script>
+</body>
+</html>

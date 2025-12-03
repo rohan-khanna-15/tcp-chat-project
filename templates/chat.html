@@ -12,6 +12,23 @@
             box-sizing: border-box;
         }
         
+
+.stats-btn {
+    padding: 8px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    text-decoration: none;
+    border-radius: 20px;
+    font-size: 14px;
+    transition: 0.3s;
+    margin-left: 10px;
+}
+
+.stats-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+        
         body {
             font-family: 'Arial', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -74,6 +91,7 @@
         .leave-btn:hover {
             background: #dc2626;
         }
+
         
         .main-content {
             display: flex;
@@ -447,6 +465,7 @@
             <div class="chat-controls">
                 <div class="status" id="status">Connecting...</div>
                 <button id="leaveBtn" class="leave-btn" style="display: none;" onclick="leaveChat()">Leave</button>
+                <a href="/statistics" target="_blank" class="stats-btn" title="View Statistics">📊 Stats</a>
             </div>
         </div>
         
